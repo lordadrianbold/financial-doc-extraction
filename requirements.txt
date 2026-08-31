@@ -1,0 +1,21 @@
+# Data loading and parsing
+requests
+pandas
+
+# Structured extraction (function calling / JSON schema enforcement)
+langchain
+langchain-anthropic
+
+# Download the real SROIE dataset from Hugging Face (network-restricted
+# in the build sandbox, but works normally on a real machine)
+huggingface_hub
+datasets
+
+# Semantic similarity for description paraphrase detection (invoice
+# evaluation) — all-mpnet-base-v2, the real published best-performer
+# for this task on the MRPC benchmark
+sentence-transformers
+numpy
+
+
+
