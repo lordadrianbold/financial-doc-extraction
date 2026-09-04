@@ -1,102 +1,140 @@
 # Financial Document Extraction Pipeline
 
-The first of five new AI Engineering-focused projects in this
-portfolio, targeting a specific, current market gap: structured
-outputs, function-calling schema enforcement, and — the real focus of
-this project — genuine **output reliability engineering**, not just
-extraction accuracy.
+This is the first of five AI Engineering projects in this portfolio.
+It targets a real market gap: structured outputs and function-calling
+schema enforcement. The main focus is output reliability engineering.
+Extraction accuracy alone is not enough.
 
-**Status: complete.** Full week-by-week findings, every real bug
-encountered, and the complete reliability investigation (seven
-distinct blind spots found and fixed across two datasets, plus
-holdout validation) are in [`notes.md`](notes.md) — this README is the
-front-door summary.
+**Status: complete.** The system is deployed live on AWS. Full
+details are in [`notes.md`](notes.md). This includes every bug found,
+the complete reliability investigation, and holdout validation
+results. This README is a summary.
+
+## Live demo
+
+A live demo runs on AWS ECS Fargate. It is scaled to zero by default
+to avoid ongoing cost. Restart it with this command:
+
+```
+aws ecs update-service --cluster ts-forecast-cluster --service financial-doc-extraction-service --desired-count 1 --region us-east-1
+```
+
+Then get its public IP. The IP changes every time the service
+restarts.
+
+```
+aws ecs list-tasks --cluster ts-forecast-cluster --service-name financial-doc-extraction-service --desired-status RUNNING --region us-east-1
+aws ecs describe-tasks --cluster ts-forecast-cluster --tasks <task-id> --region us-east-1
+aws ec2 describe-network-interfaces --network-interface-ids <eni-id> --region us-east-1
+```
+
+Visit `http://<public-ip>:8000`. Click "Run Invoice Extraction Demo."
+This runs the real extraction pipeline on a real sample invoice. It
+shows the actual reliability verdict.
+
+The service also has two API endpoints for real documents:
+`POST /extract-receipt` and `POST /extract-invoice`.
+
+Scale back to zero when done (`--desired-count 0`).
 
 ## Result
 
-A four-signal reliability system that achieves **100% precision on
-every extraction it recommends trusting** — verified not once, but
-twice, including on a completely fresh holdout dataset the system was
-never tuned against.
+The reliability system uses four independent signals. When it says
+trust an extraction, it is right 100% of the time.
+
+This was checked twice. First on the data used to build the system.
+Then on a completely fresh dataset the system had never seen.
 
 **Real, measured results:**
-- **987 real SROIE receipts** (ICDAR 2019 benchmark) loaded and parsed
-  correctly, after finding and fixing a real data-format mismatch and
-  a real Parquet schema bug.
-- **Receipt extraction**: 100% date accuracy, 93% total accuracy
-  (after fixing a real currency-comparison bug that was under-reporting
-  the model's actual performance), 73% company accuracy — and a
-  definitively closed investigation into address extraction's real
-  ceiling, independently confirmed against real published research
-  (SROIE's own documented OCR quality issues, and real benchmark
-  results from layout-aware models like StrucTexT/LayoutLMv2).
-- **160 synthetic B2B invoices** (100 clean + 30 deliberately hard + 30
-  held-out) — line items, GL codes, tax, discounts, and purchase order
-  numbers — generated with genuine internal mathematical consistency,
-  verified across 785+ individual line items.
-- **Invoice reliability system, final result**: 100% accuracy on every
-  invoice flagged as reliable, 33% on invoices flagged for review — a
-  real 67-point gap on the tuning set, and **confirmed to hold on a
-  genuinely fresh holdout set never used in development** (100%
-  precision transferred exactly; overall gap 50 points).
+- **987 real SROIE receipts** (ICDAR 2019 benchmark) were loaded and
+  parsed correctly. This required finding and fixing a real data-
+  format mismatch and a Parquet schema bug.
+- **Receipt extraction results**: 100% date accuracy, 93% total
+  accuracy, 73% company accuracy. The total accuracy number improved
+  after fixing a currency-comparison bug that had been under-reporting
+  the model's actual performance. Address extraction was investigated
+  closely, and its real ceiling was found. This ceiling was confirmed
+  against real published research — SROIE's own documented OCR quality
+  issues, and benchmark results from layout-aware models like
+  StrucTexT and LayoutLMv2.
+- **160 synthetic B2B invoices** were generated: 100 clean, 30
+  deliberately hard, and 30 held out for testing. Each invoice
+  includes line items, GL codes, tax, discounts, and purchase order
+  numbers. The math in every invoice is internally consistent. This
+  was verified across more than 785 individual line items.
+- **Invoice reliability system, final result**: 100% accuracy on
+  every invoice flagged as reliable. Invoices flagged for review were
+  only 33% accurate. That is a real 67-point gap on the tuning data.
+  This gap was tested again on a completely fresh holdout set the
+  system had never seen. The 100% precision held exactly. The overall
+  gap was 50 points.
 
 ## Why reliability engineering, not just accuracy
 
 Most extraction demos report a single accuracy number. This project
-asks a harder, more production-relevant question: **can the system
-tell you, at inference time with no ground truth available, when to
-trust its own output?** That's the real, differentiating skill this
-project set out to demonstrate — and building it correctly took
-finding and fixing seven genuinely distinct blind spots, not one clean
-implementation.
+asks a different question: can the system tell you when to trust its
+own output? This has to work at inference time, with no ground truth
+available.
+
+That is the real, differentiating skill this project set out to
+demonstrate. Building it correctly required finding and fixing seven
+distinct blind spots. It did not happen in one clean implementation.
 
 ## The real investigation, condensed
 
-Full detail in [`notes.md`](notes.md). Summary:
+Full detail is in [`notes.md`](notes.md). Summary below.
 
-- **A real data-format mismatch**, caught by direct inspection: the
-  real downloaded SROIE data shipped as Parquet, not the raw-text-file
-  format documented — the loader was rewritten to match reality, not
-  documentation.
-- **A real Parquet schema bug**: missing ground-truth fields appear as
-  present keys holding `None`, not absent keys — an initial version's
-  missing-field check silently failed to catch this, caught by testing
-  against a real Parquet round-trip.
-- **A definitively closed address investigation**: three different,
-  genuinely distinct technical attempts (rule-based validation, targeted
-  prompt wording, real spatial position data given to the model) each
-  tested broadly and found not to help — the real root cause was
-  confirmed by reading raw OCR text directly: some ground-truth
-  addresses require text that was never captured by OCR at all,
+- **A real data-format mismatch** was found by direct inspection. The
+  documentation described a raw-text-file format. The actual
+  downloaded SROIE data was shipped as Parquet instead. The loader was
+  rewritten to match reality, not the documentation.
+- **A real Parquet schema bug** was found. Missing ground-truth fields
+  appear as present keys holding `None`. They do not appear as absent
+  keys. An early version of the missing-field check silently failed to
+  catch this. The bug was caught by testing against a real Parquet
+  round-trip.
+- **The address investigation is now definitively closed.** Three
+  separate technical attempts were tried: rule-based validation,
+  targeted prompt wording, and real spatial position data given to the
+  model. Each was tested broadly. None helped. The real root cause was
+  found by reading raw OCR text directly: some ground-truth addresses
+  require text that was never captured by OCR at all. This was
   independently confirmed against real published research on this
   exact benchmark.
-- **A real currency-comparison bug** that was under-reporting genuine
-  model accuracy by treating `"$8.20"` and `"8.20"` as different values.
-- **A discount-blind reconciliation check**: a perfectly correct
-  extraction was flagged unreliable because the schema gave the model
-  nowhere to report a legitimate discount — fixed by extending the
-  schema and the reconciliation math, tested against adversarial cases
-  to confirm the fix didn't loosen real error detection.
-- **A structural blind spot in reconciliation itself**: financial math
-  checks can never detect errors in non-numeric fields by definition —
-  confirmed by a real example where every number was correct but one
-  description was wrong, with `fully_reconciles=True` regardless. Fixed
-  with an independent field-plausibility signal.
-- **A real, industry-documented paraphrase-detection limitation**,
-  addressed with real research: `all-mpnet-base-v2` and its published
-  optimal threshold (0.671) — not guessed values — added as a genuinely
-  new semantic similarity signal, confirmed on live data to correctly
-  recognize the exact real paraphrase case that motivated it.
-- **A header-field blind spot**, mirroring the line-item one: OCR noise
-  corrupting a PO number went uncaught because no signal checked header
-  fields — closed with a fourth, symmetric validator.
-- **Honest holdout validation**: rather than trust a result measured on
-  the same data used to develop it, a fresh 30-invoice set (different
-  random seed, confirmed genuinely different data) was evaluated with
-  the unmodified system. The result that matters most — precision on
-  "trust this" — held exactly. A specific per-factor finding reversed
-  direction between samples, correctly flagged as real sampling noise
-  rather than hidden or overclaimed.
+- **A real currency-comparison bug** treated `"$8.20"` and `"8.20"` as
+  different values. This was under-reporting the model's genuine
+  accuracy.
+- **The reconciliation check was blind to discounts.** A perfectly
+  correct extraction was flagged as unreliable, because the schema
+  gave the model nowhere to report a legitimate discount. This was
+  fixed by extending the schema and the reconciliation math. The fix
+  was tested against adversarial cases to confirm it did not weaken
+  real error detection.
+- **Reconciliation itself had a structural blind spot.** Financial
+  math checks can never detect errors in non-numeric fields. This was
+  confirmed by a real example: every number was correct, but one
+  description was wrong. The system still reported
+  `fully_reconciles=True`. This was fixed with an independent field-
+  plausibility signal.
+- **A real, industry-documented paraphrase-detection limitation** was
+  addressed with real research, not guesswork. The model
+  `all-mpnet-base-v2` and its published optimal threshold (0.671) were
+  added as a new semantic similarity signal. On live data, this signal
+  correctly recognized the exact real paraphrase case that motivated
+  it.
+- **A header-field blind spot mirrored the line-item one.** OCR noise
+  had corrupted a PO number, and no signal caught it, because no
+  signal checked header fields. This was closed with a fourth,
+  symmetric validator.
+- **A holdout validation was run to check the results honestly.** A
+  result measured on the same data used to build a system cannot be
+  fully trusted. A fresh 30-invoice set was generated with a different
+  random seed, and confirmed to be genuinely different data. The
+  unmodified system was evaluated on this new set. The result that
+  matters most — precision on "trust this" — held exactly. One
+  specific per-factor finding reversed direction between the two
+  samples. This was correctly flagged as real sampling noise, not
+  hidden or overclaimed.
 
 ## Project structure
 
@@ -117,18 +155,22 @@ financial-doc-extraction/
 │   ├── extract_invoice.py               # invoice extraction + 4-signal reliability system
 │   ├── run_invoice_eval.py              # clean invoice evaluation + semantic similarity
 │   ├── run_hard_invoice_eval.py         # hard invoice evaluation, per-factor breakdown
-│   └── run_holdout_invoice_eval.py      # the real holdout validation test
+│   ├── run_holdout_invoice_eval.py      # the real holdout validation test
+│   └── service.py                       # FastAPI wrapper + live demo page
 ├── results/
+├── Dockerfile
+├── task-definition.json         # the real ECS Fargate task definition
 ├── requirements.txt
+├── requirements-service.txt     # lighter deps for the deployed service specifically
 ├── notes.md                     # full week-by-week technical write-up
 └── README.md
 ```
 
 ## Setup
 
-Real SROIE data must be downloaded on your own machine (this project's
-build environment has network restrictions blocking huggingface.co
-directly):
+Real SROIE data must be downloaded on your own machine. The build
+environment used for this project has network restrictions and cannot
+reach huggingface.co directly.
 
 ```
 pip install -r requirements.txt
@@ -148,13 +190,21 @@ python src\run_hard_invoice_eval.py
 python src\run_holdout_invoice_eval.py
 ```
 
+To run the live service locally:
+
+```
+docker build -t financial-doc-extraction-service .
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY=%ANTHROPIC_API_KEY% financial-doc-extraction-service
+```
+
+Then visit `http://localhost:8000`.
+
 ## Notes
 
-Full week-by-week reasoning, every real bug found and fixed, and the
-complete reliability investigation — including the real research
-citations and the exact failing cases that motivated each fix — is in
-[`notes.md`](notes.md).
-
+Full week-by-week reasoning is in [`notes.md`](notes.md). This
+includes every real bug found and fixed, the complete reliability
+investigation, the real research citations, and the exact failing
+cases that motivated each fix.
 
 
 

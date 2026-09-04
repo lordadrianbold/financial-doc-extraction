@@ -1,0 +1,39 @@
+{
+  "family": "financial-doc-extraction-service-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "taskRoleArn": "arn:aws:iam::816069143878:role/ts-forecast-task-role",
+  "executionRoleArn": "arn:aws:iam::816069143878:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "financial-doc-extraction-service",
+      "image": "816069143878.dkr.ecr.us-east-1.amazonaws.com/financial-doc-extraction-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-1:816069143878:parameter/financial-doc-extraction-service/anthropic-api-key"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/financial-doc-extraction-service-task",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+
+
+
+

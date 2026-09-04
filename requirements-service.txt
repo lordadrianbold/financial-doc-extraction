@@ -1,0 +1,19 @@
+# Dedicated, lighter requirements for the DEPLOYED SERVICE specifically
+# (see Dockerfile) — confirmed directly by checking extract_receipt.py
+# and extract_invoice.py's actual imports: neither module needs
+# sentence-transformers/torch/numpy at all. Those heavy dependencies
+# (torch alone is several hundred MB) are only used by
+# run_invoice_eval.py for semantic-similarity EVALUATION against
+# ground truth, which the live service never does — it only runs real
+# extraction, not evaluation. Using this lighter file for the Docker
+# image (instead of the full requirements.txt) gives a real, meaningful
+# reduction in build time and image size, not a redundant duplicate
+# file for its own sake.
+
+langchain
+langchain-anthropic
+fastapi
+uvicorn[standard]
+
+
+

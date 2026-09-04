@@ -540,9 +540,60 @@ system (precision on "trust this") held up perfectly, and the honest
 places where results shifted were understood and explained, not
 smoothed over.
 
-## Week 2 and beyond
+## Week 1 (continued): a live demo, and a genuinely smooth deployment
 
-*(not yet started)*
+### A live demo page for both real pipelines
+Added `service.py` — a FastAPI wrapper around both real extraction
+pipelines (receipts and invoices), following the exact proven pattern
+from the financial-rag-agent and month-end-close-assistant projects'
+own live services. Two genuinely separate extraction endpoints
+(`/extract-receipt`, `/extract-invoice`), matching the two genuinely
+different real pipelines and schemas — not one generic endpoint
+pretending they're the same thing. A demo page and `/run-invoice-demo`
+endpoint use real, bundled synthetic invoice data; deliberately no
+bundled receipt demo, since genuine SROIE data requires its own real,
+separate local download and this project's entire discipline has been
+about not faking real data for convenience.
+
+### A real, worthwhile optimization found by checking actual imports
+Rather than reuse the full `requirements.txt` (which includes
+`sentence-transformers`/`torch`, needed only by the *evaluation*
+scripts for semantic similarity scoring against ground truth) for the
+live service, the actual imports in `extract_receipt.py` and
+`extract_invoice.py` were checked directly — confirmed neither module
+needs anything beyond `pydantic` and the standard library. Built a
+dedicated `requirements-service.txt` for the Docker image specifically,
+a real, meaningful reduction in build time and image size, not a
+redundant duplicate file for its own sake.
+
+### A genuinely smooth deployment — direct proof the lessons from Project 2 transferred
+Unlike Project 2's deployment (three distinct real bugs, extensive
+debugging), this one applied all three of that project's real, hard-
+won fixes proactively from the start, rather than rediscovering them:
+`python -m uvicorn` run from inside `src/` directly (not the bare
+binary, not a package-style import path), an explicit, targeted
+`COPY src/service.py ./src/service.py` (a proactive precaution against
+the never-fully-explained file-drop issue from before), and the
+CloudWatch log group created manually via CLI *before* attempting
+deployment, sidestepping the exact IAM permission gap
+(`ecsTaskExecutionRole` lacking `logs:CreateLogGroup`) that caused nine
+consecutive failed task-start attempts on the prior deployment.
+
+**Real result: the task reached `RUNNING` on the very first attempt.**
+No retries, no debugging, no unexpected errors — genuinely clean,
+direct evidence that identifying a bug's true root cause (not just
+patching its symptom) produces a fix that actually generalizes to a
+new, similar situation, not just the one it was originally found in.
+Verified the same way as every other deployment in this portfolio:
+`lastStatus: RUNNING` checked directly, the real public IP retrieved
+via the task's network interface, and the live service tested for
+real — both `/health` and the actual demo page, over the real
+internet — producing results identical to local testing (a perfect
+extraction, correctly verified as trustworthy by the reliability
+system).
+
+Scaled to `desiredCount=0` after verification, same cost-conscious
+pattern as every other live service in this portfolio.
 
 
 
